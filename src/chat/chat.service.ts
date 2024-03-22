@@ -7,11 +7,10 @@ import { Like } from 'typeorm';
 export class ChatService {
   constructor(private readonly database: DatabaseService) {}
   async createChat(userId: number) {
-    await this.database.chatsRepo.insert({
+    return await this.database.chatsRepo.save({
       userId,
       name: '新聊天',
     });
-    return {};
   }
 
   async findAllChats(userId: number, query?: { keywords: string }) {
