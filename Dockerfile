@@ -5,8 +5,6 @@ WORKDIR /app
 
 COPY package.json .
 
-COPY ecosystem.config.js .
-
 RUN npm config set registry http://registry.npmmirror.com/
 
 RUN npm install 
@@ -24,15 +22,13 @@ ENV NODE_ENV=${APP_ENV}
 
 WORKDIR /app
 
-COPY --from=build-stage /app/dist/apps/ ./dist/apps/
+COPY --from=build-stage /app/dist/ ./dist/
 COPY --from=build-stage /app/package.json ./
-COPY --from=build-stage /app/ecosystem.config.js ./
 COPY --from=build-stage /app/secretKey ./secretKey
 
 RUN npm config set registry https://registry.npmmirror.com/
 RUN npm install --only=--production
-RUN npm install -g pm2
 
-EXPOSE 3001
+EXPOSE 3000
 
-CMD pm2-runtime ecosystem.config.js --env {APP_ENV}
+CMD node dist/src/main
