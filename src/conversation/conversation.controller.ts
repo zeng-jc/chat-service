@@ -24,16 +24,18 @@ export class ConversationController {
     });
     // const { id: userId }: { id: number } = JSON.parse(headers.authorization);
     // return this.conversationService.sendMessage(userId, createConversationDto);
+    const count = Math.floor(Math.random() * 60);
     const source = interval(100).pipe(
       map((e) => ({
         data: e + Math.random(),
       })),
-      take(30),
+      take(count),
     );
     const subs = source.subscribe((value) => {
-      console.log(value);
+      // console.log(value);
+      if (!cache.get(messageId)) return subs.unsubscribe();
       cache.get(messageId).aiMessage += value.data;
-      if (value.data >= 30) {
+      if (value.data >= count) {
         subs.unsubscribe();
       }
     });
@@ -41,11 +43,13 @@ export class ConversationController {
   }
 
   @Post('/save')
-  sendInfo(@Headers() headers, @Body() saveDto: { chatId: number; messageId: number }) {
+  async sendInfo(@Headers() headers, @Body() saveDto: { chatId: number; messageId: number }) {
     const { chatId, messageId } = saveDto;
     const { userMessage, aiMessage } = cache.get(messageId);
     const { id: userId }: { id: number } = JSON.parse(headers.authorization);
-    this.conversationService.saveConversation(userId, chatId, userMessage, aiMessage);
+    const res = await this.conversationService.saveConversation(userId, chatId, userMessage, aiMessage);
+    cache.delete(messageId);
+    return res;
   }
 
   @Get('/list/:id')

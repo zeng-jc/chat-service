@@ -7,25 +7,16 @@ export class ConversationService {
   constructor(private readonly database: DatabaseService) {}
   async sendMessage(userId: number, createConversationDto: CreateConversationDto) {
     const { chatId, userMessage } = createConversationDto;
-    const answer = '-----------';
+    return { chatId, userMessage };
+  }
+
+  async saveConversation(userId: number, chatId: number, userMessage: string, aiMessage: string) {
     return await this.database.conversationsRepo.save({
       userId,
       chatId,
       userMessage,
-      answer,
+      aiMessage,
     });
-  }
-
-  async saveConversation(userId, chatId, userMessage: string, aiMessage: string) {
-    try {
-      await this.database.conversationsRepo.save({
-        userId,
-        chatId,
-        userMessage,
-        aiMessage,
-      });
-    } catch (err) {}
-    return null;
   }
 
   async findAllConversations(userId: number, chatId: number) {
