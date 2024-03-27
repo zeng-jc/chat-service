@@ -21,4 +21,5 @@ export const localConfig = {
       port: 6379,
     },
   },
+  zhipuai_apikey: '',
 };

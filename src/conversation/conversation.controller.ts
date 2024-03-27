@@ -1,7 +1,7 @@
 import { Controller, Get, Body, Param, Delete, Headers, Post, SetMetadata } from '@nestjs/common';
 import { ConversationService } from './conversation.service';
 import { CreateConversationDto } from './dto/create-conversation.dto';
-import { Observable, interval, map, take } from 'rxjs';
+import { Observable, map } from 'rxjs';
 import { SSE_METADATA } from '@nestjs/common/constants';
 export interface MessageEvent {
   data: number | object;
@@ -16,30 +16,21 @@ export class ConversationController {
 
   @SetMetadata(SSE_METADATA, true)
   @Post('send')
-  'SSE /send'(@Headers() headers, @Body() createConversationDto: CreateConversationDto): Observable<number | MessageEvent> {
+  'SSE /send'(@Headers() headers, @Body() createConversationDto: CreateConversationDto): Observable<any> {
     const { messageId, userMessage } = createConversationDto;
     cache.set(messageId, {
       userMessage,
       aiMessage: '',
     });
-    // const { id: userId }: { id: number } = JSON.parse(headers.authorization);
-    // return this.conversationService.sendMessage(userId, createConversationDto);
-    const count = Math.floor(Math.random() * 60);
-    const source = interval(100).pipe(
-      map((e) => ({
-        data: e + Math.random(),
-      })),
-      take(count),
+    const { id: userId }: { id: number } = JSON.parse(headers.authorization);
+    return this.conversationService.sendAIMessage(userId, createConversationDto).pipe(
+      map((value) => {
+        if (value !== '[DONE]') {
+          cache.get(messageId).aiMessage += (value as string).match(/"content":"([^"]*)"/)[1];
+        }
+        return value;
+      }),
     );
-    const subs = source.subscribe((value) => {
-      // console.log(value);
-      if (!cache.get(messageId)) return subs.unsubscribe();
-      cache.get(messageId).aiMessage += value.data;
-      if (value.data >= count) {
-        subs.unsubscribe();
-      }
-    });
-    return source;
   }
 
   @Post('/save')
