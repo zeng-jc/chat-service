@@ -1,7 +1,7 @@
 import { Controller, Get, Body, Param, Delete, Headers, Post, SetMetadata } from '@nestjs/common';
 import { ConversationService } from './conversation.service';
 import { CreateConversationDto } from './dto/create-conversation.dto';
-import { Observable, map } from 'rxjs';
+import { map } from 'rxjs';
 import { SSE_METADATA } from '@nestjs/common/constants';
 export interface MessageEvent {
   data: number | object;
@@ -16,7 +16,7 @@ export class ConversationController {
 
   @SetMetadata(SSE_METADATA, true)
   @Post('send')
-  'SSE /send'(@Headers() headers, @Body() createConversationDto: CreateConversationDto): Observable<any> {
+  'SSE /send'(@Headers() headers, @Body() createConversationDto: CreateConversationDto): any {
     const { messageId, userMessage } = createConversationDto;
     cache.set(messageId, {
       userMessage,
@@ -24,11 +24,11 @@ export class ConversationController {
     });
     const { id: userId }: { id: number } = JSON.parse(headers.authorization);
     return this.conversationService.sendAIMessage(userId, createConversationDto).pipe(
-      map((value) => {
-        if (value !== '[DONE]') {
-          cache.get(messageId).aiMessage += (value as string).match(/"content":"([^"]*)"/)[1];
+      map((data: { content: string } | '[DONE]') => {
+        if (data !== '[DONE]') {
+          cache.get(messageId).aiMessage += data?.content ?? '';
         }
-        return value;
+        return data;
       }),
     );
   }

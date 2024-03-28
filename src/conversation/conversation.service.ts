@@ -6,6 +6,7 @@ import { Observable } from 'rxjs';
 import { ZhipuAI } from 'zhipuai-sdk-nodejs-v4';
 import { StringDecoder } from 'string_decoder';
 import { configLoader } from '../configLoader';
+
 const zhipuai_apikey: string = configLoader('zhipuai_apikey');
 
 @Injectable()
@@ -15,8 +16,16 @@ export class ConversationService {
     private httpService: HttpService,
   ) {}
 
+  isInvalidJSON(json: string) {
+    try {
+      return JSON.parse(json);
+    } catch (error) {
+      return false;
+    }
+  }
+
   sendAIMessage(userId: number, createConversationDto: CreateConversationDto): Observable<unknown> {
-    let observable = new Observable((subscribe) => {
+    return new Observable((subscribe) => {
       const { userMessage } = createConversationDto;
       const dialogue = async () => {
         const ai = new ZhipuAI({
@@ -29,64 +38,29 @@ export class ConversationService {
           stream: true,
         });
         const decoder = new StringDecoder('utf8');
-        const chunks = [];
         for await (const chunk of result) {
           decoder
             .write(chunk)
             .split('\n\n')
             .forEach((item) => {
-              const matches = item.match(/"content":"[^"]*"/);
-              const res = matches !== null && `{"data":{${matches[0]}}}`;
-              if (res) {
-                chunks.push(res);
-                subscribe.next(res);
+              if (!item) return;
+              const json = this.isInvalidJSON(item.slice(6));
+              if (json) {
+                subscribe.next({ content: json.choices[0].delta?.content ?? '' });
+              } else {
+                // sse传输字符串截断位置是随机的，如果是在数据中间位置截断就会导致失败
+                // console.log('json-final', item);
               }
-              if (item === 'data: [DONE]') {
-                const NODE = item.split(' ')[1];
-                chunks.push(NODE);
-                subscribe.next(NODE);
-                decoder.end();
+              if (item.includes('[DONE]')) {
+                subscribe.next('[DONE]');
+                decoder.end('');
                 subscribe.complete();
-                observable = null;
               }
             });
         }
       };
       dialogue();
     });
-    return observable;
-  }
-
-  // 自定义请求方式
-  sendAIMessageCustomRequest(userId: number, createConversationDto: CreateConversationDto): any {
-    const { userMessage } = createConversationDto;
-    const requestBody = {
-      model: 'glm-4',
-      messages: [
-        {
-          role: 'user',
-          content: userMessage,
-        },
-      ],
-      stream: true,
-    };
-    const headersRequest = {
-      'Content-Type': 'application/json',
-      Authorization: '',
-    };
-    const sseUrl = 'https://open.bigmodel.cn/api/paas/v4/chat/completions'; // 替换为你的 SSE 服务端点
-    this.httpService.axiosRef
-      .post(sseUrl, requestBody, {
-        headers: headersRequest,
-        responseType: 'stream',
-      })
-      .then((response) => {
-        response.data.on('data', () => {});
-        response.data.on('end', () => {});
-        response.data.on('error', () => {});
-        response.data.on('close', () => {});
-      })
-      .catch(() => {});
   }
 
   async saveConversation(userId: number, chatId: number, userMessage: string, aiMessage: string) {
