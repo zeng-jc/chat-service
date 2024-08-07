@@ -6,8 +6,8 @@ const config = {
 };
 
 type localType = keyof typeof localConfig;
-type produType = keyof typeof prodConfig;
+type prodType = keyof typeof prodConfig;
 
-export function configLoader<T>(configKey: localType | produType): T {
+export function configLoader<T>(configKey: localType | prodType): T {
   return config[process.env.NODE_ENV || 'development'][configKey];
 }
