@@ -7,9 +7,11 @@ import { SecretKeyModule } from './secretKey/secretKey.module';
 import { ChatModule } from './chat/chat.module';
 import { AuthModule } from './auth/auth.module';
 import { ConversationModule } from './conversation/conversation.module';
+import { UploadModule } from './upload/upload.module';
+import { MinioClientModule } from './minio/minio.module';
 
 @Module({
-  imports: [DatabaseModule, SecretKeyModule, AuthModule, ChatModule, ConversationModule],
+  imports: [DatabaseModule, SecretKeyModule, AuthModule, ChatModule, ConversationModule, UploadModule, MinioClientModule],
   controllers: [AppController],
   providers: [
     AppService,
