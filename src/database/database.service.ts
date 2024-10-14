@@ -1,4 +1,4 @@
-import { UsersEntity, ChatsEntity, ConversationsEntity } from './entities';
+import { UsersEntity, ChatsEntity, ConversationsEntity, UploadsEntity } from './entities';
 import { Injectable } from '@nestjs/common';
 import { InjectEntityManager, InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Repository } from 'typeorm';
@@ -17,5 +17,8 @@ export class DatabaseService {
 
     @InjectEntityManager()
     public readonly entityManager: EntityManager,
+
+    @InjectRepository(UploadsEntity)
+    public readonly uploadsRepo: Repository<UploadsEntity>,
   ) {}
 }

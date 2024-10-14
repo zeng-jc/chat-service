@@ -11,16 +11,22 @@ export class UploadController {
   @UseInterceptors(
     FileInterceptor('fileChunk', {
       limits: {
-        fileSize: 6 * 1024 * 1024,
+        fileSize: 10 * 1024 * 1024,
       },
     }),
   )
-  async updateUser(@UploadedFile() fileChunk: Blob, @Body() uploadDto: UploadDto) {
-    await new Promise((resolve) =>
-      setTimeout(() => {
-        resolve(1);
-      }, 200),
-    );
+  async update(@UploadedFile() fileChunk: Express.Multer.File, @Body() uploadDto: UploadDto) {
+    uploadDto.fileChunk = fileChunk.buffer;
     return this.uploadService.upload(uploadDto);
+  }
+
+  @Post('check')
+  async checkChunk(@Body() data: Omit<UploadDto, 'fileChunk'>) {
+    return this.uploadService.checkChunk(data);
+  }
+
+  @Post('merge')
+  async merge(@Body() data: { fileHash: string }) {
+    return this.uploadService.merge(data);
   }
 }

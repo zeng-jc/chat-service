@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { MinioClient, MinioService } from 'nestjs-minio-client';
 import { bucketNameEnum } from './minio.bucket-name';
+import * as Minio from 'minio';
 
 @Injectable()
 export class MinioClientService {
@@ -72,5 +73,36 @@ export class MinioClientService {
     } catch (error) {
       return false;
     }
+  }
+
+  async uploadChunk(bucketName: string = this.bucketName, fileName: string, fileChunk: Buffer): Promise<string> {
+    let res;
+    try {
+      res = await this.client.putObject(bucketName, fileName, Buffer.from(fileChunk));
+    } catch (error) {
+      console.log(error);
+    }
+    return res;
+  }
+
+  async mergeFile(chunkIds: string[], fileName: string, bucketName: string) {
+    // 创建源列表（每个CopySourceOptions对象指定了源分片所在的桶和对象名称）
+    const sourceList = chunkIds.map(
+      (name) =>
+        new Minio.CopySourceOptions({
+          Bucket: bucketName,
+          Object: name,
+        }),
+    );
+    // 创建目标选项（每个CopyDestinationOptions对象，指定合并后文件的目标桶和对象名称）
+    const destOption = new Minio.CopyDestinationOptions({
+      Bucket: bucketName,
+      Object: fileName,
+    });
+    return this.client.composeObject(destOption, sourceList);
+  }
+
+  async removeFile(bucketName: string, fileNameList: string[]) {
+    await this.client.removeObjects(bucketName, fileNameList);
   }
 }
