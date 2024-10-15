@@ -3,50 +3,58 @@ import { UploadDto } from './dto/create-upload.dto';
 import { MinioClientService } from '../minio/minio.service';
 import { bucketNameEnum } from '../minio/minio.bucket-name';
 import { DatabaseService } from 'src/database/database.service';
+import { UploadsEntity } from 'src/database/entities';
 
 const bucketName = bucketNameEnum.upload;
 @Injectable()
 export class UploadService {
   constructor(
-    private readonly databaseService: DatabaseService,
+    private readonly database: DatabaseService,
     private readonly minioClientService: MinioClientService,
   ) {}
   async upload(uploadDto: UploadDto) {
     const { fileChunk, index, chunkHash, fileHash, fileName, fileSize, fileType } = uploadDto;
     const chunkId = `${index}-${chunkHash}`;
-    // 把分片存储到minio
-    await this.minioClientService.uploadChunk(bucketName, chunkId, fileChunk);
-    // 查询文件信息
-    const fileInfo = await this.databaseService.uploadsRepo.findOne({
-      where: {
-        fileHash,
-      },
-      select: ['chunkIds'],
-    });
-    if (!fileInfo?.chunkIds) {
-      await this.databaseService.uploadsRepo.save({
-        bucketName,
-        fileName,
-        fileHash,
-        fileSize,
-        fileType,
-        chunkIds: [chunkId],
+
+    await this.database.entityManager.transaction(async (transactionalEntityManager) => {
+      // 把分片存储到minio
+      await this.minioClientService.uploadChunk(bucketName, chunkId, fileChunk);
+
+      // 使用悲观锁定查询文件信息
+      const fileInfo = await transactionalEntityManager.findOne(UploadsEntity, {
+        where: { fileHash },
+        select: ['chunkIds'],
+        // 使用 pessimistic_write 锁定模式时，数据库会在读取记录的同时对其加写锁。这意味着在事务完成之前，其他事务无法对这条记录进行更新或删除操，只能等待。
+        lock: { mode: 'pessimistic_write' },
       });
-      return true;
-    }
-    // 把分片信息存储到数据库
-    await this.databaseService.uploadsRepo.update(
-      { fileHash },
-      {
-        chunkIds: [...fileInfo?.chunkIds, chunkId],
-      },
-    );
+
+      if (!fileInfo) {
+        await transactionalEntityManager.save(UploadsEntity, {
+          bucketName,
+          fileName,
+          fileHash,
+          fileSize,
+          fileType,
+          chunkIds: [chunkId],
+        });
+      } else {
+        // 把分片信息存储到数据库
+        await transactionalEntityManager.update(
+          UploadsEntity,
+          { fileHash },
+          {
+            chunkIds: [...fileInfo.chunkIds, chunkId],
+          },
+        );
+      }
+    });
+
     return true;
   }
 
   async checkChunk({ fileHash, chunkHash, index }: Omit<UploadDto, 'fileChunk'>) {
     const chunkId = `${index}-${chunkHash}`;
-    const fileInfo = await this.databaseService.uploadsRepo.findOne({
+    const fileInfo = await this.database.uploadsRepo.findOne({
       where: {
         fileHash,
       },
@@ -59,7 +67,7 @@ export class UploadService {
 
   async merge({ fileHash }: { fileHash: string }) {
     try {
-      const { chunkIds, id, fileName } = await this.databaseService.uploadsRepo.findOne({
+      const { chunkIds, id, fileName } = await this.database.uploadsRepo.findOne({
         where: {
           fileHash,
         },
