@@ -1,4 +1,11 @@
-import { Controller, Post, Body, UseInterceptors, UploadedFile } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  UseInterceptors,
+  UploadedFile,
+  Delete,
+} from '@nestjs/common';
 import { UploadService } from './upload.service';
 import { UploadDto } from './dto/create-upload.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -15,7 +22,10 @@ export class UploadController {
       },
     }),
   )
-  async update(@UploadedFile() fileChunk: Express.Multer.File, @Body() uploadDto: UploadDto) {
+  async update(
+    @UploadedFile() fileChunk: Express.Multer.File,
+    @Body() uploadDto: UploadDto,
+  ) {
     uploadDto.fileChunk = fileChunk.buffer;
     return this.uploadService.upload(uploadDto);
   }
@@ -28,5 +38,10 @@ export class UploadController {
   @Post('merge')
   async merge(@Body() data: { fileHash: string }) {
     return this.uploadService.merge(data);
+  }
+
+  @Delete('clear')
+  async clearAll() {
+    return this.uploadService.clearAll();
   }
 }
